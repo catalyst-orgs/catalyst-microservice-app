@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: platform-catalyst-api-v1-config
+  namespace: default # Change if your deployment uses a different namespace
+data:
+  # Add your environment variables below
+  EXAMPLE_KEY: "example-value"

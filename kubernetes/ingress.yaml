@@ -1,0 +1,26 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: platform-catalyst-api-v1
+  namespace: platform-catalyst-api-v1
+  labels:
+    app: platform-catalyst-api-v1
+  annotations:
+    kubernetes.io/ingress.class: istio
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+spec:
+  tls:
+    - hosts:
+        - api.platformcatalyst.dev
+      secretName: platform-catalyst-api-v1-tls
+  rules:
+    - host: api.platformcatalyst.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: platform-catalyst-api-v1
+                port:
+                  number: 80
