@@ -1,0 +1,106 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: platform-catalyst-api-v1
+  namespace: platform-catalyst-api-v1
+  labels:
+    app: platform-catalyst-api-v1
+    version: v1
+    app.kubernetes.io/name: platform-catalyst-api-v1
+    app.kubernetes.io/version: v1
+    app.kubernetes.io/part-of: platform-catalyst-api-v1-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: platform-catalyst-api-v1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: platform-catalyst-api-v1
+        version: v1
+        app.kubernetes.io/name: platform-catalyst-api-v1
+        app.kubernetes.io/version: v1
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: platform-catalyst-api-v1-sa
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1001
+        runAsGroup: 1001
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: platform-catalyst-api-v1
+          image: 850995574616.dkr.ecr.us-east-1.amazonaws.com/microservice:eff2cd81847d7f0d94180d35f7dc157875e1f69a
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          env:
+            - name: SERVICE_NAME
+              value: "platform-catalyst-api-v1"
+            - name: ENVIRONMENT
+              value: "development"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: platform-catalyst-api-v1-secrets
+                  key: database-url
+                  optional: true
+          envFrom:
+            - configMapRef:
+                name: platform-catalyst-api-v1-config
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          envFrom:
+            - configMapRef:
+                name: platform-catalyst-api-v1-config
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # Readiness probe - can the container handle requests?
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+          # Startup probe - for slow starting containers
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 0
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 30
+          # Security context for container
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL

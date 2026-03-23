@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: platform-catalyst-api-v1
+  namespace: argocd
+  labels:
+    app: platform-catalyst-api-v1
+    environment: development
+  annotations:
+    argocd.argoproj.io/sync-wave: "30"
+spec:
+  project: applications
+  source:
+    repoURL: https://github.com/catalyst-orgs/catalyst-microservice-app
+    targetRevision: main
+    path: kubernetes
+    helm:
+      valueFiles:
+        - values-development.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: platform-catalyst-api-v1
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true

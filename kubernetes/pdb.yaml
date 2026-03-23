@@ -1,0 +1,13 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: platform-catalyst-api-v1-pdb
+  namespace: platform-catalyst-api-v1
+  labels:
+    app: platform-catalyst-api-v1
+spec:
+  # Ensure at least 1 replica is available during voluntary disruptions
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: platform-catalyst-api-v1
