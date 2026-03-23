@@ -1,0 +1,64 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        working-directory: ./backend
+        run: pip install -r requirements.txt
+      - name: Run tests
+        working-directory: ./backend
+        run: pytest
+
+  build-and-push:
+    needs: test
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: Build, tag, and push image to ECR
+        working-directory: ./backend
+        env:
+          ECR_REGISTRY: 850995574616.dkr.ecr.us-east-1.amazonaws.com
+          ECR_REPOSITORY: microservice
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REPOSITORY:$IMAGE_TAG .
+          docker tag $ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      - name: Configure kubeconfig for EKS
+        run: aws eks update-kubeconfig --region us-east-1 --name project-catalyst
+
+      - name: Set image on Kubernetes deployment
+        env:
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          # Set up kubeconfig here if needed, e.g. using aws eks update-kubeconfig
+          kubectl set image deployment/platform-catalyst-api-v1 \
+            platform-catalyst-api-v1=850995574616.dkr.ecr.us-east-1.amazonaws.com/microservice:${IMAGE_TAG} \
+            -n platform-catalyst-api-v1

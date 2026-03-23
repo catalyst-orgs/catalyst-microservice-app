@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Catalyst - IDP Dashboard</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0f172a; color: #e2e8f0; min-height: 100vh; }
+        .header { background: linear-gradient(135deg, #1e293b, #334155); padding: 20px 40px; border-bottom: 2px solid #3b82f6; display: flex; align-items: center; justify-content: space-between; }
+        .header h1 { font-size: 24px; color: #60a5fa; }
+        .header .version-badge { padding: 6px 16px; border-radius: 20px; font-weight: 600; font-size: 14px; }
+        .container { max-width: 1200px; margin: 30px auto; padding: 0 20px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .card { background: #1e293b; border-radius: 12px; padding: 24px; border: 1px solid #334155; }
+        .card h2 { font-size: 16px; color: #94a3b8; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 1px; }
+        .card .value { font-size: 28px; font-weight: 700; }
+        .info-row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #334155; }
+        .info-row:last-child { border-bottom: none; }
+        .info-row .label { color: #94a3b8; }
+        .info-row .val { color: #e2e8f0; font-family: monospace; }
+        .btn { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; transition: all 0.2s; margin: 4px; }
+        .btn-primary { background: #3b82f6; color: white; }
+        .btn-primary:hover { background: #2563eb; }
+        .btn-warning { background: #f59e0b; color: #1e293b; }
+        .btn-warning:hover { background: #d97706; }
+        .btn-danger { background: #ef4444; color: white; }
+        .btn-danger:hover { background: #dc2626; }
+        .btn-success { background: #10b981; color: white; }
+        .btn-success:hover { background: #059669; }
+        .actions { margin-bottom: 30px; text-align: center; }
+        .traffic-test { margin-top: 20px; }
+        .traffic-results { margin-top: 16px; display: flex; gap: 8px; flex-wrap: wrap; }
+        .traffic-dot { width: 24px; height: 24px; border-radius: 4px; display: inline-block; transition: all 0.2s; }
+        .traffic-stats { margin-top: 12px; display: flex; gap: 20px; justify-content: center; flex-wrap: wrap; }
+        .stat { padding: 8px 16px; border-radius: 8px; background: #334155; font-size: 14px; }
+        .log-container { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 16px; max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 13px; line-height: 1.6; }
+        .log-entry { padding: 2px 0; }
+        .log-entry .time { color: #64748b; }
+        .log-entry .v1 { color: #3b82f6; }
+        .log-entry .v2 { color: #10b981; }
+        .log-entry .err { color: #ef4444; }
+        .status-healthy { color: #10b981; }
+        .status-loading { color: #f59e0b; }
+        .status-error { color: #ef4444; }
+        #api-url-input { background: #334155; border: 1px solid #475569; color: #e2e8f0; padding: 10px 16px; border-radius: 8px; width: 400px; font-size: 14px; margin-right: 8px; }
+        .controls { text-align: center; margin-bottom: 20px; }
+        .headers-section { margin-top: 16px; }
+        .header-input { background: #334155; border: 1px solid #475569; color: #e2e8f0; padding: 6px 12px; border-radius: 4px; font-size: 13px; margin: 2px; width: 180px; }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1>&#9671; Project Catalyst Dashboard</h1>
+    <div class="version-badge" id="version-badge" style="background: #334155; color: #94a3b8;">Connecting...</div>
+</div>
+
+<div class="container">
+
+    <div class="controls">
+        <input type="text" id="api-url-input" placeholder="Backend API URL" value="/api">
+        <button class="btn btn-primary" onclick="fetchInfo()">Connect</button>
+    </div>
+
+    <!-- Service Info Cards -->
+    <div class="grid">
+        <div class="card">
+            <h2>Service Info</h2>
+            <div id="service-info">
+                <div class="info-row"><span class="label">Status</span><span class="val status-loading">Waiting...</span></div>
+            </div>
+        </div>
+        <div class="card">
+            <h2>Pod Details</h2>
+            <div id="pod-info">
+                <div class="info-row"><span class="label">Status</span><span class="val status-loading">Waiting...</span></div>
+            </div>
+        </div>
+        <div class="card">
+            <h2>Istio Headers</h2>
+            <div id="istio-headers">
+                <div class="info-row"><span class="label">Status</span><span class="val status-loading">Waiting...</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Traffic Split Testing -->
+    <div class="card traffic-test">
+        <h2>Traffic Split Testing</h2>
+        <p style="color: #94a3b8; margin-bottom: 12px;">Send multiple requests to visualize traffic distribution between v1 and v2.</p>
+
+        <div style="text-align: center;">
+            <button class="btn btn-primary" onclick="trafficTest(10)">10 Requests</button>
+            <button class="btn btn-primary" onclick="trafficTest(50)">50 Requests</button>
+            <button class="btn btn-primary" onclick="trafficTest(100)">100 Requests</button>
+            <button class="btn btn-danger" onclick="clearTraffic()">Clear</button>
+        </div>
+
+        <div class="headers-section">
+            <p style="color: #94a3b8; margin-bottom: 8px; font-size: 13px;">Custom Headers (for routing tests):</p>
+            <input type="text" class="header-input" id="header-key" placeholder="Header name (e.g. x-version)">
+            <input type="text" class="header-input" id="header-val" placeholder="Header value (e.g. v2)">
+        </div>
+
+        <div class="traffic-results" id="traffic-dots"></div>
+        <div class="traffic-stats" id="traffic-stats"></div>
+    </div>
+
+    <!-- Feature Testing -->
+    <div class="grid" style="margin-top: 20px;">
+        <div class="card">
+            <h2>Feature Testing</h2>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                <button class="btn btn-success" onclick="testEndpoint('/api/items')">GET /api/items</button>
+                <button class="btn btn-success" onclick="testEndpoint('/api/items/1')">GET /api/items/1</button>
+                <button class="btn btn-warning" onclick="testEndpoint('/api/delay/3')">Timeout Test (3s delay)</button>
+                <button class="btn btn-danger" onclick="testEndpoint('/api/status/503')">Circuit Breaker (503)</button>
+                <button class="btn btn-danger" onclick="testEndpoint('/api/status/500')">Error Test (500)</button>
+                <button class="btn btn-primary" onclick="testEndpoint('/api/headers')">Show Headers</button>
+                <button class="btn btn-primary" onclick="testEndpoint('/health')">Health Check</button>
+                <button class="btn btn-primary" onclick="testEndpoint('/ready')">Readiness Check</button>
+            </div>
+        </div>
+        <div class="card">
+            <h2>Request Log</h2>
+            <div class="log-container" id="request-log">
+                <div class="log-entry"><span class="time">Ready</span> — Click a button to start testing</div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+const getApiBase = () => document.getElementById('api-url-input').value.replace(/\/+$/, '');
+
+function getCustomHeaders() {
+    const key = document.getElementById('header-key').value.trim();
+    const val = document.getElementById('header-val').value.trim();
+    const headers = { 'Accept': 'application/json' };
+    if (key && val) headers[key] = val;
+    return headers;
+}
+
+function addLog(message, cls = '') {
+    const log = document.getElementById('request-log');
+    const time = new Date().toLocaleTimeString();
+    const entry = document.createElement('div');
+    entry.className = 'log-entry';
+    entry.innerHTML = `<span class="time">${time}</span> — <span class="${cls}">${escapeHtml(message)}</span>`;
+    log.prepend(entry);
+    if (log.children.length > 100) log.removeChild(log.lastChild);
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+async function fetchInfo() {
+    try {
+        const resp = await fetch(getApiBase() + '/info', { headers: getCustomHeaders() });
+        const data = await resp.json();
+
+        const color = data.color || '#3b82f6';
+        document.getElementById('version-badge').style.background = color;
+        document.getElementById('version-badge').style.color = 'white';
+        document.getElementById('version-badge').textContent = data.version || 'unknown';
+
+        document.getElementById('service-info').innerHTML = `
+            <div class="info-row"><span class="label">Service</span><span class="val">${escapeHtml(data.service || '')}</span></div>
+            <div class="info-row"><span class="label">Version</span><span class="val" style="color:${color};font-weight:700">${escapeHtml(data.version || '')}</span></div>
+            <div class="info-row"><span class="label">Uptime</span><span class="val">${data.uptime_seconds || 0}s</span></div>
+            <div class="info-row"><span class="label">Timestamp</span><span class="val">${escapeHtml(data.timestamp || '')}</span></div>
+        `;
+
+        document.getElementById('pod-info').innerHTML = `
+            <div class="info-row"><span class="label">Pod</span><span class="val">${escapeHtml(data.pod || '')}</span></div>
+            <div class="info-row"><span class="label">Node</span><span class="val">${escapeHtml(data.node || '')}</span></div>
+            <div class="info-row"><span class="label">Namespace</span><span class="val">${escapeHtml(data.namespace || '')}</span></div>
+            <div class="info-row"><span class="label">Hostname</span><span class="val">${escapeHtml(data.hostname || '')}</span></div>
+        `;
+
+        const rh = data.request_headers || {};
+        document.getElementById('istio-headers').innerHTML = `
+            <div class="info-row"><span class="label">x-request-id</span><span class="val">${escapeHtml(rh['x-request-id'] || 'n/a')}</span></div>
+            <div class="info-row"><span class="label">x-forwarded-for</span><span class="val">${escapeHtml(rh['x-forwarded-for'] || 'n/a')}</span></div>
+            <div class="info-row"><span class="label">x-envoy-decorator</span><span class="val">${escapeHtml(rh['x-envoy-decorator-operation'] || 'n/a')}</span></div>
+            <div class="info-row"><span class="label">host</span><span class="val">${escapeHtml(rh['host'] || 'n/a')}</span></div>
+        `;
+
+        addLog(`Connected to ${data.service} ${data.version} (${data.pod})`, data.version === 'v1' ? 'v1' : 'v2');
+    } catch (e) {
+        addLog(`Connection failed: ${e.message}`, 'err');
+        document.getElementById('version-badge').style.background = '#ef4444';
+        document.getElementById('version-badge').textContent = 'Error';
+    }
+}
+
+async function testEndpoint(path) {
+    const start = performance.now();
+    try {
+        const resp = await fetch(getApiBase().replace(/\/api$/, '') + path, { headers: getCustomHeaders() });
+        const elapsed = Math.round(performance.now() - start);
+        const data = await resp.json();
+        addLog(`${resp.status} ${path} (${elapsed}ms) → ${JSON.stringify(data).substring(0, 120)}`, resp.ok ? 'v1' : 'err');
+    } catch (e) {
+        addLog(`FAIL ${path}: ${e.message}`, 'err');
+    }
+}
+
+async function trafficTest(count) {
+    const dots = document.getElementById('traffic-dots');
+    const stats = document.getElementById('traffic-stats');
+    const results = { v1: 0, v2: 0, error: 0 };
+
+    for (let i = 0; i < count; i++) {
+        try {
+            const resp = await fetch(getApiBase() + '/version', { headers: getCustomHeaders() });
+            const data = await resp.json();
+            const ver = data.version || 'unknown';
+            const color = data.color || '#64748b';
+
+            const dot = document.createElement('div');
+            dot.className = 'traffic-dot';
+            dot.style.background = color;
+            dot.title = `${ver} (${data.pod || ''})`;
+            dots.appendChild(dot);
+
+            if (ver === 'v1') results.v1++;
+            else if (ver === 'v2') results.v2++;
+            else results.error++;
+        } catch (e) {
+            results.error++;
+            const dot = document.createElement('div');
+            dot.className = 'traffic-dot';
+            dot.style.background = '#ef4444';
+            dot.title = 'Error';
+            dots.appendChild(dot);
+        }
+    }
+
+    const total = results.v1 + results.v2 + results.error;
+    stats.innerHTML = `
+        <div class="stat" style="border-left: 3px solid #3b82f6;">v1: ${results.v1} (${Math.round(results.v1/total*100)}%)</div>
+        <div class="stat" style="border-left: 3px solid #10b981;">v2: ${results.v2} (${Math.round(results.v2/total*100)}%)</div>
+        ${results.error > 0 ? `<div class="stat" style="border-left: 3px solid #ef4444;">Errors: ${results.error}</div>` : ''}
+        <div class="stat">Total: ${total}</div>
+    `;
+    addLog(`Traffic test: ${count} reqs → v1:${results.v1} v2:${results.v2} err:${results.error}`);
+}
+
+function clearTraffic() {
+    document.getElementById('traffic-dots').innerHTML = '';
+    document.getElementById('traffic-stats').innerHTML = '';
+}
+
+// Auto-connect on load
+window.addEventListener('load', () => {
+    // Detect backend URL
+    const loc = window.location;
+    if (loc.hostname !== 'localhost' && loc.hostname !== '127.0.0.1') {
+        document.getElementById('api-url-input').value = loc.protocol + '//' + loc.hostname + '/api';
+    }
+    fetchInfo();
+});
+</script>
+
+</body>
+</html>
